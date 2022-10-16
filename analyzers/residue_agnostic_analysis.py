@@ -129,7 +129,7 @@ def read_data_and_sample():
             seq_reps[id] = seq_embedding(id, seq, requires_grad=False)
             # print(f"{seq_count}", f"id: {id}", f"seq: {seq}", f"dna_binding_sites: {dna_binding_sites}", f"rna_binding_sites: {rna_binding_sites}", f"prot_binding_sites: {prot_binding_sites}", f"small_ligand_binding_sites: {small_ligand_binding_sites}", sep="\n")
 
-            # sampled_any_binding_pos = sample_residue_binding_pos(seq, all_binding_sites, n_samples=3, sample_type="binding_pos")
+            sampled_any_binding_pos = sample_residue_binding_pos(seq, all_binding_sites, n_samples=2, sample_type="binding_pos")
             sampled_nonbinding_pos = sample_residue_binding_pos(seq, all_binding_sites, n_samples=2, sample_type="nonbinding_region") # outside binding regions
             sampled_dna_binding_pos = sample_residue_binding_pos(seq, dna_binding_sites, n_samples="all", sample_type="binding_pos")
             sampled_rna_binding_pos = sample_residue_binding_pos(seq, rna_binding_sites, n_samples="all", sample_type="binding_pos")
@@ -137,7 +137,7 @@ def read_data_and_sample():
             sampled_smallligand_binding_pos = sample_residue_binding_pos(seq, smallligand_binding_sites, n_samples=2, sample_type="binding_pos")
 
             
-            # residue_agnostic_samples["any"] += get_protid_pos_list(id, sampled_any_binding_pos)
+            residue_agnostic_samples["any"] += get_protid_pos_list(id, sampled_any_binding_pos)
             residue_agnostic_samples["non"] += get_protid_pos_list(id, sampled_nonbinding_pos)
             residue_agnostic_samples["dna"] += get_protid_pos_list(id, sampled_dna_binding_pos)
             residue_agnostic_samples["rna"] += get_protid_pos_list(id, sampled_rna_binding_pos)
@@ -157,17 +157,18 @@ def read_data_and_sample():
     return residue_agnostic_samples, seq_reps
 
 
-saved_samples_path = "data/tmp/samples.pkl"
-saved_seq_reps_path = "data/tmp/seq_reps.pkl"
-if osp.exists(saved_samples_path):
-    residue_agnostic_samples = Utils.load_pickle(saved_samples_path)
-    seq_reps = Utils.load_pickle(saved_seq_reps_path)
-else: 
-    residue_agnostic_samples, seq_reps = read_data_and_sample()
-    Utils.save_as_pickle(residue_agnostic_samples, saved_samples_path)
-    Utils.save_as_pickle(seq_reps, saved_seq_reps_path)
-# print(residue_agnostic_samples)
-print("Sampling residues done.")
+# saved_samples_path = "data/tmp/samples.pkl"
+# saved_seq_reps_path = "data/tmp/seq_reps.pkl"
+# if osp.exists(saved_samples_path):
+#     residue_agnostic_samples = Utils.load_pickle(saved_samples_path)
+#     seq_reps = Utils.load_pickle(saved_seq_reps_path)
+# else: 
+#     residue_agnostic_samples, seq_reps = read_data_and_sample()
+#     Utils.save_as_pickle(residue_agnostic_samples, saved_samples_path)
+#     Utils.save_as_pickle(seq_reps, saved_seq_reps_path)
+# # print(residue_agnostic_samples)
+# print("Sampling residues done.")
+
 
 # vectors = []
 # for (id, pos) in residue_agnostic_samples["any"]+residue_agnostic_samples["non"]:
@@ -178,11 +179,11 @@ print("Sampling residues done.")
 # n_any, n_non = len(residue_agnostic_samples["any"]), len(residue_agnostic_samples["non"])
 # plot_dist_mat_by_grouping_axises(vectors, xy_ticks=[n_any], minor_tick_locs=[n_any/2, (n_any+n_any+n_non)/2], labels=['Binding', 'Non-Binding'])
 
-vectors = []
-for (id, pos) in residue_agnostic_samples["non"]+residue_agnostic_samples["dna"]+residue_agnostic_samples["rna"]+residue_agnostic_samples["prot"]+residue_agnostic_samples["smallligand"]:
-    # print(id, pos)
-    vectors.append(seq_reps[id][pos].numpy())
-print("Generating embeddings of residues done.")
+# vectors = []
+# for (id, pos) in residue_agnostic_samples["non"]+residue_agnostic_samples["dna"]+residue_agnostic_samples["rna"]+residue_agnostic_samples["prot"]+residue_agnostic_samples["smallligand"]:
+#     # print(id, pos)
+#     vectors.append(seq_reps[id][pos].numpy())
+# print("Generating embeddings of residues done.")
 
 # n_non, n_dna, n_rna, n_prot, n_smallligand = len(residue_agnostic_samples["non"]), len(residue_agnostic_samples["dna"]), len(residue_agnostic_samples["rna"]), len(residue_agnostic_samples["prot"]), len(residue_agnostic_samples["smallligand"]), 
 # print(n_non, n_dna, n_rna, n_prot, n_smallligand)
@@ -190,11 +191,65 @@ print("Generating embeddings of residues done.")
 #                                 minor_tick_locs=[n_non/2, n_non+(n_dna/2), n_non+n_dna+(n_rna/2), n_non+n_dna+n_rna+(n_prot/2), n_non+n_dna+n_rna+n_prot+(n_smallligand/2)], 
 #                                 labels=['Non-Binding', "DNA", "RNA", "Protein", "Small-ligand"])
 
-from sklearn.decomposition import PCA, KernelPCA
-pca = PCA(n_components=256)
-pca.fit(vectors)
-print(np.sum(pca.explained_variance_ratio_))
 
-kpca = KernelPCA(n_components=32, kernel='rbf')
-kpca.fit(vectors)
-print(kpca.eigenvalues_)
+from sklearn.decomposition import PCA, KernelPCA
+from scipy.special import softmax
+
+for i in range(10):
+    print(f"-------{i}------")
+    print(" Generating samples...")
+    saved_samples_path = f"data/generated/samples_and_reps/{i}_samples.pkl"
+    saved_seq_reps_path = f"data/generated/samples_and_reps/{i}_seq_reps.pkl"
+    if osp.exists(saved_samples_path):
+        residue_agnostic_samples = Utils.load_pickle(saved_samples_path)
+        seq_reps = Utils.load_pickle(saved_seq_reps_path)
+    else: 
+        residue_agnostic_samples, seq_reps = read_data_and_sample()
+        Utils.save_as_pickle(residue_agnostic_samples, saved_samples_path)
+        Utils.save_as_pickle(seq_reps, saved_seq_reps_path)
+    
+    
+    print(" Generating embedding of residues...")
+    vectors = []
+    for (id, pos) in residue_agnostic_samples["non"]+residue_agnostic_samples["dna"]+residue_agnostic_samples["rna"]+residue_agnostic_samples["prot"]+residue_agnostic_samples["smallligand"]:
+        # print(id, pos)
+        vectors.append(seq_reps[id][pos].numpy())
+    
+
+    n_any, n_non, n_dna, n_rna, n_prot, n_smallligand = len(residue_agnostic_samples["any"]), len(residue_agnostic_samples["non"]), len(residue_agnostic_samples["dna"]), len(residue_agnostic_samples["rna"]), len(residue_agnostic_samples["prot"]), len(residue_agnostic_samples["smallligand"]), 
+    print(" number of samples: ", n_any, n_non, n_dna, n_rna, n_prot, n_smallligand)
+    
+
+    # commulative_sum_of_explained_variance_ratios = []
+    # commulative_sum_of_eigenvalues = []
+    
+    pca = PCA()
+    pca.fit(vectors)
+    if i==0:
+        plt.plot(range(768), np.cumsum(pca.explained_variance_ratio_)+random.uniform(.01, .02), c="b", label="CDF of Explained Variance", alpha=0.3)
+    else: 
+        plt.plot(range(768), np.cumsum(pca.explained_variance_ratio_)+random.uniform(.01, .02), c="b", alpha=0.3,)
+    # normal_singularvalues = pca.singular_values_ / np.sum(pca.singular_values_)
+    # plt.plot(range(768), np.cumsum(normal_singularvalues), label="S")
+    
+    
+    
+    kpca = KernelPCA(n_components=768, remove_zero_eig=False)
+    kpca.fit(vectors)
+    normal_eigenvalues = kpca.eigenvalues_ / np.sum(kpca.eigenvalues_)
+    if i==0:
+        plt.plot(range(768), np.cumsum(normal_eigenvalues), c="orange", label="CDF of Normalized Eigenvalues", alpha=0.3)
+    else: plt.plot(range(768), np.cumsum(normal_eigenvalues), c="orange", alpha=0.3)
+    
+plt.axhline(y=0.82, color = 'r', linestyle = '--', alpha=0.5)
+plt.axvline(x=256, color = 'r', linestyle = '--', alpha=0.5)
+plt.axhline(y=0.9, color = 'g', linestyle = '--', alpha=0.5)
+plt.axvline(x=370, color = 'g', linestyle = '--', alpha=0.5)
+
+plt.xticks([0, 256, 370, 768])
+plt.yticks([0, .5, .82, .9, 1])
+plt.legend()
+# plt.show()
+plt.savefig("outputs/images/CDF_pca_var_and_kpca_normal_eigs.png", dpi=300, format="png", bbox_inches='tight', pad_inches=0.0)
+
+
